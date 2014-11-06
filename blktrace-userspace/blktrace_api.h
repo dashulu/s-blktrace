@@ -93,6 +93,9 @@ enum blktrace_notify {
 /*
  * The trace itself
  */
+
+#define MAX_VEC 200
+
 struct blk_io_trace {
 	__u32 magic;		/* MAGIC << 8 | version */
 	__u32 sequence;		/* event number */
@@ -104,6 +107,9 @@ struct blk_io_trace {
 	__u32 device;		/* device identifier (dev_t) */
 	__u32 cpu;		/* on what cpu did it happen */
 	__u16 error;		/* completion error */
+	__u16 vec_count;
+	__u32 seq;
+	//__u32 vec[MAX_VEC];
 	__u16 pdu_len;		/* length of data after this trace */
 };
 

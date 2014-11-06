@@ -285,6 +285,32 @@ static char *parse_field(char *act, struct per_cpu_info *pci,
 	return p;
 }
 
+/*
+static unsigned int get_value(struct blk_io_trace *t, int i) {
+	if(i > MAX_VEC)
+		return 0;
+	switch(i) {
+		case 0: return t->vec0;
+		case 1: return t->vec1;
+		case 2: return t->vec2;
+		case 3: return t->vec3;
+		case 4: return t->vec4;
+		case 5: return t->vec5;
+		case 6: return t->vec6;
+		case 7: return t->vec7;
+		case 8: return t->vec8;
+		case 9: return t->vec9;
+		case 10: return t->vec10;
+		case 11: return t->vec11;
+		case 12: return t->vec12;
+		case 13: return t->vec13;
+		case 14: return t->vec14;
+		case 15: return t->vec15;
+	}
+	return 0;
+	
+}*/
+
 static void process_default(char *act, struct per_cpu_info *pci,
 			    struct blk_io_trace *t, unsigned long long elapsed,
 			    int pdu_len, unsigned char *pdu_buf)
@@ -292,6 +318,7 @@ static void process_default(char *act, struct per_cpu_info *pci,
 	struct blk_io_trace_remap r = { .device_from = 0, };
 	char rwbs[8];
 	char *name;
+	int i;
 
 	fill_rwbs(rwbs, t);
 
@@ -307,7 +334,7 @@ static void process_default(char *act, struct per_cpu_info *pci,
 	/*
 	 * The header is always the same
 	 */
-	fprintf(ofp, "%3d,%-3d %2d %8d %5d.%09lu %5u %2s %3s ",
+	fprintf(ofp, "%3d,%-3d %2d %8d %5d.%09lu %5u %2s %3s",
 		MAJOR(t->device), MINOR(t->device), pci->cpu, t->sequence,
 		(int) SECONDS(t->time), (unsigned long) NANO_SECONDS(t->time),
 		t->pid, act, rwbs);
@@ -324,23 +351,88 @@ static void process_default(char *act, struct per_cpu_info *pci,
 			fprintf(ofp, "[%d]\n", t->error);
 		} else {
 			if (elapsed != -1ULL) {
-				if (t_sec(t))
-					fprintf(ofp, "%llu + %u (%8llu) [%d]\n",
-						(unsigned long long) t->sector,
-						t_sec(t), elapsed, t->error);
-				else
-					fprintf(ofp, "%llu (%8llu) [%d]\n",
+				if (t_sec(t)) {
+					if(t->vec_count == 0) {
+						if(t->vec_count == MAX_VEC + 1) {
+							fprintf(ofp, "%llu + %u (%8llu) [%d] seq:%u error:descriptor_item_number_is_zero\n",
+								(unsigned long long) t->sector,
+								t_sec(t), elapsed, t->error, t->seq);
+						} else if(t->vec_count >= 2*MAX_VEC) {
+							fprintf(ofp, "%llu + %u (%8llu) [%d] journal_block_type:%u seq:%u \n",
+								(unsigned long long) t->sector,
+								t_sec(t), elapsed, t->error, t->vec_count/MAX_VEC - 2, t->seq);
+						} else {
+							fprintf(ofp, "%llu + %u (%8llu) [%d] count:%u seq:%u \n",
+								(unsigned long long) t->sector,
+								t_sec(t), elapsed, t->error, t->vec_count, t->seq);
+						}
+					} else {
+						fprintf(ofp, "%llu + %u (%8llu) [%d] 1count:%u seq:%u ",
+							(unsigned long long) t->sector,
+							t_sec(t), elapsed, t->error, t->vec_count, t->seq);
+	/*					for(i = 0;i < t->vec_count;i++) {
+							fprintf(ofp, "%u ", t->vec[i]);
+						}*/
+						fprintf(ofp, "\n");
+					}
+				} else {
+					fprintf(ofp, "%llu (%8llu) [%d] \n",
 						(unsigned long long) t->sector,
 						elapsed, t->error);
+				}
 			} else {
-				if (t_sec(t))
-					fprintf(ofp, "%llu + %u [%d]\n",
-						(unsigned long long) t->sector,
-						t_sec(t), t->error);
-				else
+				if (t_sec(t)) {
+					if(t->vec_count == 0) {
+						if(t->vec_count == MAX_VEC + 1) {
+							fprintf(ofp, "%llu + %u [%d] seq:%u error:descriptor_item_number_is_zero\n",
+								(unsigned long long) t->sector,
+								t_sec(t), t->error, t->seq);
+						} else if(t->vec_count >= 2*MAX_VEC) {
+							fprintf(ofp, "%llu + %u  [%d] journal_block_type:%u seq:%u \n",
+								(unsigned long long) t->sector,
+								t_sec(t), t->error,  t->vec_count/MAX_VEC - 2, t->seq);
+						} else {
+							fprintf(ofp, "%llu + %u  [%d] count:%u seq:%u \n",
+								(unsigned long long) t->sector,
+								t_sec(t), t->error,  t->vec_count, t->seq);
+						}
+					} else {
+						fprintf(ofp, "%llu + %u [%d] 2count:%u seq:%u ",
+							(unsigned long long) t->sector,
+							t_sec(t), t->error, t->vec_count, t->seq);
+					/*	for(i = 0;i < t->vec_count;i++) {
+							fprintf(ofp, "%u ", t->vec[i]);
+						}*/
+						fprintf(ofp, "\n");
+					}
+				} else {
+					if(t->vec_count == 0) {
+						if(t->vec_count == MAX_VEC + 1) {
+							fprintf(ofp, "%llu [%d] seq:%u error:descriptor_item_number_is_zero\n",
+								(unsigned long long) t->sector,
+								t->error, t->seq);
+						} else if(t->vec_count >= 2*MAX_VEC) {
+							fprintf(ofp, "%llu [%d] journal_block_type:%u seq:%u \n",
+								(unsigned long long) t->sector,
+								t->error, t->vec_count/MAX_VEC - 2, t->seq);
+						} else {
+							fprintf(ofp, "%llu [%d] count:%u seq:%u \n",
+								(unsigned long long) t->sector,
+								t->error, t->vec_count, t->seq);
+						}
+					} else {
+						fprintf(ofp, "%llu  3count:%u seq:%u ",
+							(unsigned long long) t->sector,
+							t->vec_count, t->seq);
+		/*				for(i = 0;i < t->vec_count;i++) {
+							fprintf(ofp, "%u  ",t->vec[i]);
+						}*/
+						fprintf(ofp, "\n");
+					}
 					fprintf(ofp, "%llu [%d]\n",
 						(unsigned long long) t->sector,
 						t->error);
+				}
 			}
 		}
 		break;
@@ -359,17 +451,17 @@ static void process_default(char *act, struct per_cpu_info *pci,
 		} else {
 			if (elapsed != -1ULL) {
 				if (t_sec(t))
-					fprintf(ofp, "%llu + %u (%8llu) [%s]\n",
+					fprintf(ofp, "%llu + %u (%8llu) [%s] count:%u seq:%u\n",
 						(unsigned long long) t->sector,
-						t_sec(t), elapsed, name);
+						t_sec(t), elapsed, name, t->vec_count, t->seq);
 				else
-					fprintf(ofp, "(%8llu) [%s]\n", elapsed,
-						name);
+					fprintf(ofp, "(%8llu) [%s] count:%u seq:%u\n", elapsed,
+						name, t->vec_count, t->seq);
 			} else {
 				if (t_sec(t))
-					fprintf(ofp, "%llu + %u [%s]\n",
+					fprintf(ofp, "%llu + %u [%s] count:%u seq:%u\n",
 						(unsigned long long) t->sector,
-						t_sec(t), name);
+						t_sec(t), name, t->vec_count, t->seq);
 				else
 					fprintf(ofp, "[%s]\n", name);
 			}
@@ -398,10 +490,10 @@ static void process_default(char *act, struct per_cpu_info *pci,
 
 	case 'A': 	/* remap */
 		get_pdu_remap(t, &r);
-		fprintf(ofp, "%llu + %u <- (%d,%d) %llu\n",
+		fprintf(ofp, "%llu + %u <- (%d,%d) %llu count:%u seq:%u\n",
 			(unsigned long long) t->sector, t_sec(t),
 			MAJOR(r.device_from), MINOR(r.device_from),
-			(unsigned long long) r.sector_from);
+			(unsigned long long) r.sector_from, t->vec_count, t->seq);
 		break;
 
 	case 'X': 	/* Split */
